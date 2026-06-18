@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Nora Intake — 로컬에서 모으고, Nora가 가져갑니다</title>
+<meta name="description" content="로컬 우선 데이터 수집 데스크탑 앱. 화면을 보고 움직이는 RPA·컴퓨터유즈 봇을 노코드로, 수집한 데이터는 로컬 DB와 data API로." />
+<style>
+  :root{
+    --bg:#f7f6f3; --surface:#ffffff; --ink:#16161a; --charcoal:#2c2c33; --stone:#6b6b76;
+    --hair:#e7e5e0; --primary:#16161a; --accent:#2563eb; --accent-soft:#eaf0ff;
+    --radius:14px; --maxw:1080px;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:16px/1.6 -apple-system,BlinkMacSystemFont,"Pretendard","Segoe UI",Roboto,sans-serif;
+    -webkit-font-smoothing:antialiased}
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px}
+  header{position:sticky;top:0;z-index:10;backdrop-filter:saturate(180%) blur(10px);
+    background:rgba(247,246,243,.8);border-bottom:1px solid var(--hair)}
+  .nav{display:flex;align-items:center;justify-content:space-between;height:62px}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:650}
+  .logo{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;
+    background:linear-gradient(150deg,#24242f,#3a3a4c);box-shadow:inset 0 1px 0 rgba(255,255,255,.18)}
+  .logo svg{width:18px;fill:#f4f4f8}
+  .nav-cta{font-size:14px;color:var(--stone)}
+  .btn{display:inline-flex;align-items:center;gap:9px;border:none;cursor:pointer;
+    border-radius:11px;padding:13px 20px;font-size:15px;font-weight:600;transition:.16s}
+  .btn-primary{background:var(--primary);color:#fff}
+  .btn-primary:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(0,0,0,.16)}
+  .btn-ghost{background:var(--surface);color:var(--charcoal);border:1px solid var(--hair)}
+  .btn-ghost:hover{background:#fff;border-color:#d8d6d0}
+  .hero{padding:88px 0 56px;text-align:center}
+  .eyebrow{display:inline-block;font-size:13px;letter-spacing:.04em;color:var(--accent);
+    background:var(--accent-soft);padding:5px 12px;border-radius:999px;margin-bottom:20px}
+  h1{font-size:54px;line-height:1.08;letter-spacing:-.02em;margin:0 0 18px;font-weight:720}
+  h1 .muted{color:var(--stone)}
+  .lead{font-size:19px;color:var(--charcoal);max-width:660px;margin:0 auto 30px}
+  .cta-row{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;align-items:center}
+  .platform-note{font-size:13px;color:var(--stone);margin-top:14px}
+  .shot{margin:54px auto 0;max-width:920px;border:1px solid var(--hair);border-radius:var(--radius);
+    background:var(--surface);box-shadow:0 30px 60px -30px rgba(0,0,0,.25);overflow:hidden}
+  .shot-bar{display:flex;gap:7px;padding:12px 14px;border-bottom:1px solid var(--hair)}
+  .dot{width:11px;height:11px;border-radius:50%}
+  .shot-body{padding:0;display:grid;grid-template-columns:200px 1fr;min-height:300px}
+  .shot-side{border-right:1px solid var(--hair);padding:16px;background:#fbfaf8}
+  .shot-side div{height:11px;background:#ececea;border-radius:5px;margin-bottom:12px}
+  .shot-side div:nth-child(odd){width:75%}
+  .shot-main{padding:22px}
+  .node{border:1px solid var(--hair);border-left:3px solid var(--accent);border-radius:10px;
+    padding:12px 14px;margin:0 0 14px;background:#fff;max-width:340px;box-shadow:0 1px 0 rgba(0,0,0,.03)}
+  .node small{color:var(--stone)}
+  .arrow{width:2px;height:16px;background:var(--hair);margin:0 0 14px 22px}
+  section{padding:64px 0}
+  .section-title{font-size:30px;letter-spacing:-.01em;margin:0 0 8px;text-align:center;font-weight:680}
+  .section-sub{color:var(--stone);text-align:center;margin:0 auto 40px;max-width:560px}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+  .card{background:var(--surface);border:1px solid var(--hair);border-radius:var(--radius);padding:22px}
+  .card h3{margin:6px 0 8px;font-size:18px}
+  .card p{margin:0;color:var(--stone);font-size:14.5px}
+  .chip{display:inline-grid;place-items:center;width:34px;height:34px;border-radius:9px;
+    background:var(--accent-soft);color:var(--accent);font-weight:700}
+  .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;counter-reset:s}
+  .step{background:var(--surface);border:1px solid var(--hair);border-radius:var(--radius);padding:22px;position:relative}
+  .step:before{counter-increment:s;content:counter(s);position:absolute;top:-14px;left:20px;
+    width:28px;height:28px;border-radius:50%;background:var(--primary);color:#fff;display:grid;place-items:center;font-size:14px;font-weight:700}
+  .step h4{margin:8px 0 6px;font-size:16px}
+  .step p{margin:0;color:var(--stone);font-size:14px}
+  .note{max-width:760px;margin:30px auto 0;background:#fffaf0;border:1px solid #f0e3c0;
+    border-radius:12px;padding:14px 18px;font-size:14px;color:#7a5a12}
+  .note code{background:#fff;border:1px solid #efe3c4;border-radius:5px;padding:1px 6px;font-size:13px}
+  footer{border-top:1px solid var(--hair);padding:34px 0;color:var(--stone);font-size:13.5px}
+  .foot{display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px}
+  @media(max-width:720px){
+    h1{font-size:38px}.grid,.steps{grid-template-columns:1fr}.shot-body{grid-template-columns:1fr}
+    .shot-side{display:none}
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap nav">
+    <div class="brand"><span class="logo"><svg viewBox="0 0 210.48 115.31" xmlns="http://www.w3.org/2000/svg"><path d="M111.41,34.37V10.57c0-.47-.18-.91-.51-1.24L102.08.52c-.61-.61-1.39-.6-1.91-.38-.52.22-1.08.76-1.08,1.62v36.06c0,.84-.48,1.57-1.26,1.89-.78.32-1.63.15-2.23-.44l-22.49-22.49c-.33-.33-.77-.51-1.24-.51h-12.47c-.86,0-1.4.56-1.62,1.08-.22.52-.23,1.3.38,1.91l28.78,28.78c.6.6.77,1.45.44,2.23-.32.78-1.04,1.26-1.89,1.26H10.57c-.47,0-.91.18-1.24.51L.52,60.85c-.61.61-.6,1.39-.38,1.91.22.52.76,1.08,1.62,1.08h80.18c3.27,0,6.34-1.27,8.65-3.59l17.23-17.23c2.31-2.31,3.58-5.39,3.58-8.65Z"/><path d="M210.34,52.55c-.22-.52-.76-1.08-1.62-1.08h-80.18c-3.27,0-6.34,1.27-8.65,3.59l-17.23,17.23c-2.31,2.31-3.58,5.39-3.58,8.65v23.79c0,.47.18.91.51,1.24l8.82,8.82c.38.38.82.52,1.22.52.25,0,.49-.05.69-.14.52-.22,1.08-.76,1.08-1.62v-36.06c0-.84.48-1.57,1.26-1.89.78-.32,1.63-.15,2.23.44l22.49,22.49c.33.33.77.51,1.24.51h12.47c.86,0,1.4-.56,1.62-1.08.22-.52.23-1.3-.38-1.91l-28.78-28.78c-.6-.6-.77-1.45-.44-2.23.32-.78,1.05-1.26,1.89-1.26h74.92c.47,0,.91-.18,1.24-.51l8.82-8.82c.61-.61.6-1.39.38-1.91Z"/></svg></span> Nora Intake</div>
+    <a class="nav-cta" href="#download">다운로드</a>
+  </div>
+</header>
+
+<main>
+  <div class="wrap hero">
+    <span class="eyebrow">로컬 우선 데이터 수집</span>
+    <h1>모으는 건 내 PC에서.<br><span class="muted">가져가는 건 Nora가.</span></h1>
+    <p class="lead">화면을 보고 스스로 움직이는 봇(RPA·컴퓨터유즈)을 노코드로 만들고, 수집한 데이터는 로컬 DB에 쌓여 안전한 data API로 흘러갑니다. 키와 데이터는 이 컴퓨터를 떠나지 않습니다.</p>
+    <div class="cta-row" id="download">
+      <a class="btn btn-primary" id="dl-primary" href="#"><span id="dl-icon">↓</span> <span id="dl-label">다운로드</span></a>
+      <a class="btn btn-ghost" id="dl-secondary" href="#" style="display:none"></a>
+    </div>
+    <div class="platform-note" id="platform-note">macOS (Apple Silicon) · 무료</div>
+
+    <div class="shot" aria-hidden="true">
+      <div class="shot-bar"><span class="dot" style="background:#ff5f57"></span><span class="dot" style="background:#febc2e"></span><span class="dot" style="background:#28c840"></span></div>
+      <div class="shot-body">
+        <div class="shot-side"><div></div><div></div><div></div><div></div><div></div></div>
+        <div class="shot-main">
+          <div class="node"><b>계정 URL 순회</b><br><small>for each · web.insta</small></div>
+          <div class="arrow"></div>
+          <div class="node"><b>페이지 열기</b><br><small>navigate · {{row.url}}</small></div>
+          <div class="arrow"></div>
+          <div class="node"><b>최근 10개 지표 추출</b><br><small>extract · title · shares · bookmarks</small></div>
+          <div class="arrow"></div>
+          <div class="node"><b>이미 가져온 글은 건너뜀</b><br><small>title 기준 중복 제거</small></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <section>
+    <div class="wrap">
+      <h2 class="section-title">복잡한 수집을 한 문장으로</h2>
+      <p class="section-sub">노드를 일일이 잇지 않아도 됩니다. 무엇을 모을지 말하면 RPA·컴퓨터유즈·파일검색을 엮어 연결된 플로우를 만들어 줍니다.</p>
+      <div class="grid">
+        <div class="card"><span class="chip">A</span><h3>화면을 보는 봇</h3><p>로그인이 필요한 사이트도 한 번 로그인하면 세션을 기억합니다. 선택자가 없으면 컴퓨터유즈가 화면을 보고 직접 클릭합니다.</p></div>
+        <div class="card"><span class="chip">B</span><h3>중복은 알아서</h3><p>식별 컬럼(제목·URL)을 키로 두면 이미 가져온 항목은 다시 쌓이지 않습니다. 수치가 바뀌어도 한 건만 유지.</p></div>
+        <div class="card"><span class="chip">C</span><h3>스키마도 AI로</h3><p>“이런 정보를 담을 거야”라고 말하거나, CSV·엑셀을 올리면 탭별로 컬럼·타입·키를 자동으로 잡아 줍니다.</p></div>
+        <div class="card"><span class="chip">D</span><h3>내 데이터, 내 컴퓨터</h3><p>모든 건 로컬 SQLite에 저장되고, 토큰으로 보호된 data API로만 외부에 제공됩니다. 도메인 노출은 터널로 한 번에.</p></div>
+        <div class="card"><span class="chip">E</span><h3>표는 진짜 DB처럼</h3><p>컬럼 추가·제약·정렬·필터·CSV 내보내기. 행을 직접 편집하거나 봇·커넥터로 채웁니다.</p></div>
+        <div class="card"><span class="chip">F</span><h3>커넥터 마켓플레이스</h3><p>Naver·Coupang·Meta·Amazon·Apify 등 키 기반 커넥터를 설치하듯 연결하고 채널별 수집 주기를 지정.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section style="background:var(--surface);border-top:1px solid var(--hair);border-bottom:1px solid var(--hair)">
+    <div class="wrap">
+      <h2 class="section-title">설치하고 바로 시작</h2>
+      <p class="section-sub">앱 하나면 됩니다. 엔진(브라우저 자동화)은 첫 실행 때 자동으로 준비됩니다.</p>
+      <div class="steps">
+        <div class="step"><h4>다운로드 & 열기</h4><p>위 버튼으로 받은 파일을 응용 프로그램으로 옮기고 실행합니다.</p></div>
+        <div class="step"><h4>첫 실행 준비</h4><p>자동화에 쓰는 브라우저를 한 번 내려받습니다. 이후엔 바로 봇 실행.</p></div>
+        <div class="step"><h4>모으기 시작</h4><p>채팅으로 봇을 만들거나 커넥터를 연결하면 로컬 DB에 데이터가 쌓입니다.</p></div>
+      </div>
+      <div class="note">
+        macOS에서 “확인되지 않은 개발자” 안내가 뜨면, 앱을 <b>우클릭 → 열기</b>를 한 번 선택하면 됩니다. (서명되지 않은 초기 빌드)
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap foot">
+    <span>© 2026 Conscience Technology · Nora Intake</span>
+    <span>로컬 우선 · 키와 데이터는 이 컴퓨터에만</span>
+  </div>
+</footer>
+
+<script>
+  // Installers live on GitHub Releases. We link to the "latest" release page
+  // (not a direct file) because asset filenames carry the version and change
+  // every release — this link is always current. CI publishes the release;
+  // the in-app auto-updater reads the same release's latest.json.
+  const RELEASES = "https://github.com/Conscience-Technology/Nora-Intake-Dist/releases/latest";
+  const DOWNLOADS = {
+    mac:   { url: RELEASES, label: "macOS용 다운로드", note: "macOS (Apple Silicon) · 무료" },
+    win:   { url: RELEASES, label: "Windows용 다운로드", note: "Windows 10/11 · 무료" },
+    other: { url: RELEASES, label: "다운로드",           note: "데스크탑(맥/윈도우)에서 받으세요" }
+  };
+  const ua = navigator.userAgent;
+  const isMac = /Mac/.test(ua) && !/iPhone|iPad/.test(ua);
+  const isWin = /Win/.test(ua);
+  const key = isMac ? "mac" : isWin ? "win" : "other";
+  const d = DOWNLOADS[key];
+  const primary = document.getElementById("dl-primary");
+  primary.href = d.url;
+  document.getElementById("dl-label").textContent = d.label;
+  document.getElementById("platform-note").textContent = d.note;
+  // offer the other desktop OS as a secondary link
+  const otherKey = key === "mac" ? "win" : "mac";
+  if (key !== "other") {
+    const s = document.getElementById("dl-secondary");
+    s.href = DOWNLOADS[otherKey].url;
+    s.textContent = DOWNLOADS[otherKey].label;
+    s.style.display = "inline-flex";
+  }
+</script>
+</body>
+</html>

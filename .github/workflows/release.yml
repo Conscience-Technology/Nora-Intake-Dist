@@ -1,0 +1,116 @@
+# Public release pipeline. Builds Nora Intake from the PRIVATE source repo
+# (Conscience-Technology/Nora-Intake, pulled with a read-only deploy key) and
+# publishes the installers + auto-update manifest (latest.json) as a release HERE,
+# in the public dist repo — so download links and the in-app updater resolve over
+# anonymous public URLs.
+#
+# Run it: Actions → release → "Run workflow" (set `tag`, e.g. v0.2.0). The desktop
+# app's version comes from the private source's tauri.conf.json; bump that first.
+#
+# Required repo secrets (Settings → Secrets and variables → Actions):
+#   SRC_DEPLOY_KEY                     read-only deploy-key private key for the source repo
+#   TAURI_SIGNING_PRIVATE_KEY          updater signing key (same one baked into installed apps)
+#   TAURI_SIGNING_PRIVATE_KEY_PASSWORD "" if the key has no password
+#   # macOS notarization (optional — unsigned still works via right-click):
+#   APPLE_CERTIFICATE / APPLE_CERTIFICATE_PASSWORD / APPLE_SIGNING_IDENTITY
+#   APPLE_ID / APPLE_PASSWORD / APPLE_TEAM_ID
+name: release
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Source repo ref to build (branch/tag/sha)"
+        required: false
+        default: main
+      tag:
+        description: "Release tag to publish here, e.g. v0.2.0"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-14            # Apple Silicon
+            rust_target: aarch64-apple-darwin
+            node_url: https://nodejs.org/dist/v20.18.1/node-v20.18.1-darwin-arm64.tar.gz
+            frpc_url: https://github.com/fatedier/frp/releases/download/v0.61.1/frp_0.61.1_darwin_arm64.tar.gz
+          - platform: windows-latest
+            rust_target: x86_64-pc-windows-msvc
+            node_url: https://nodejs.org/dist/v20.18.1/node-v20.18.1-win-x64.zip
+            frpc_url: https://github.com/fatedier/frp/releases/download/v0.61.1/frp_0.61.1_windows_amd64.zip
+    runs-on: ${{ matrix.platform }}
+    steps:
+      # Pull the PRIVATE source into the workspace using the read-only deploy key.
+      - uses: actions/checkout@v4
+        with:
+          repository: Conscience-Technology/Nora-Intake
+          ref: ${{ inputs.ref }}
+          ssh-key: ${{ secrets.SRC_DEPLOY_KEY }}
+
+      - uses: pnpm/action-setup@v4
+        with: { version: 9 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: pnpm, cache-dependency-path: frontend/pnpm-lock.yaml }
+      - uses: dtolnay/rust-toolchain@stable
+        with: { targets: "${{ matrix.rust_target }}" }
+      - uses: swatinem/rust-cache@v2
+        with: { workspaces: "./src-tauri -> target" }
+
+      - name: Frontend deps + build
+        run: pnpm --dir frontend install --frozen-lockfile && pnpm --dir frontend build
+
+      - name: Bridge deps (the automation engine)
+        run: npm --prefix workers/rpa-bridge ci --omit=optional && npm --prefix workers/rpa-bridge install @anthropic-ai/claude-agent-sdk
+
+      # Stage the engine resources the bundle expects (mirrors scripts/release.sh).
+      - name: Stage engine resources (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p src-tauri/resources
+          rsync -a --exclude '_*' --exclude '*.log' workers/rpa-bridge/ src-tauri/resources/rpa-bridge/
+          curl -sL "${{ matrix.node_url }}" -o /tmp/node.tgz
+          tar -xzf /tmp/node.tgz -C /tmp
+          cp /tmp/node-*/bin/node src-tauri/resources/node && chmod +x src-tauri/resources/node
+          curl -sL "${{ matrix.frpc_url }}" -o /tmp/frp.tgz
+          tar -xzf /tmp/frp.tgz -C /tmp
+          cp /tmp/frp_*/frpc src-tauri/resources/frpc && chmod +x src-tauri/resources/frpc
+      - name: Stage engine resources (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force src-tauri/resources | Out-Null
+          robocopy workers/rpa-bridge src-tauri/resources/rpa-bridge /E /XF "*.log" "_*" | Out-Null
+          Invoke-WebRequest "${{ matrix.node_url }}" -OutFile $env:TEMP/node.zip
+          Expand-Archive $env:TEMP/node.zip -DestinationPath $env:TEMP/node -Force
+          Copy-Item (Get-ChildItem $env:TEMP/node -Recurse -Filter node.exe | Select-Object -First 1).FullName src-tauri/resources/node.exe
+          Invoke-WebRequest "${{ matrix.frpc_url }}" -OutFile $env:TEMP/frp.zip
+          Expand-Archive $env:TEMP/frp.zip -DestinationPath $env:TEMP/frp -Force
+          Copy-Item (Get-ChildItem $env:TEMP/frp -Recurse -Filter frpc.exe | Select-Object -First 1).FullName src-tauri/resources/frpc.exe
+          if ($LASTEXITCODE -ge 8) { exit 1 } else { exit 0 }
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        with:
+          projectPath: src-tauri
+          tagName: ${{ inputs.tag }}
+          releaseName: "Nora Intake ${{ inputs.tag }}"
+          releaseDraft: true
+          prerelease: false
+          # Publishes installers to THIS (public) repo's release and merges a
+          # cross-platform latest.json updater manifest with public asset URLs.
+          includeUpdaterJson: true
+          args: --target ${{ matrix.rust_target }}
