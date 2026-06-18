@@ -93,6 +93,43 @@ jobs:
           Copy-Item (Get-ChildItem $env:TEMP/frp -Recurse -Filter frpc.exe | Select-Object -First 1).FullName src-tauri/resources/frpc.exe
           if ($LASTEXITCODE -ge 8) { exit 1 } else { exit 0 }
 
+      # Notarization requires EVERY Mach-O in the bundle to be signed with our
+      # Developer ID + hardened runtime + secure timestamp. Tauri only signs the
+      # app's own binary, so we deep-sign the embedded engine binaries (node, frpc,
+      # ripgrep, sharp/fsevents native addons) here, in place, BEFORE tauri bundles
+      # them. The Node binary also gets JIT entitlements so it runs under the
+      # hardened runtime. tauri-action then signs + notarizes the assembled app.
+      - name: Sign embedded engine binaries (macOS)
+        if: runner.os == 'macOS'
+        env:
+          CERT_BASE64: ${{ secrets.APPLE_CERTIFICATE }}
+          CERT_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          SIGN_ID: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+        run: |
+          set -euo pipefail
+          KEYCHAIN="$RUNNER_TEMP/embed-sign.keychain-db"
+          KPWD="$(openssl rand -base64 24)"
+          security create-keychain -p "$KPWD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KPWD" "$KEYCHAIN"
+          echo "$CERT_BASE64" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -k "$KEYCHAIN" -P "$CERT_PASSWORD" -T /usr/bin/codesign -f pkcs12
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KPWD" "$KEYCHAIN" >/dev/null
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | sed s/\"//g)
+          ENT="src-tauri/entitlements.plist"
+          # Sign innermost first isn't required for standalone files; sign every Mach-O.
+          find src-tauri/resources -type f ! -name "*.js" ! -name "*.json" ! -name "*.ts" ! -name "*.md" -print0 \
+          | while IFS= read -r -d '' f; do
+              if file "$f" | grep -q "Mach-O"; then
+                if [ "$(basename "$f")" = "node" ]; then
+                  codesign --force --timestamp --options runtime --entitlements "$ENT" --keychain "$KEYCHAIN" -s "$SIGN_ID" "$f"
+                else
+                  codesign --force --timestamp --options runtime --keychain "$KEYCHAIN" -s "$SIGN_ID" "$f"
+                fi
+                echo "signed: $f"
+              fi
+            done
+
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
