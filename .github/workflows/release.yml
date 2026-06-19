@@ -64,7 +64,11 @@ jobs:
       - name: Frontend deps + build
         run: pnpm --dir frontend install --frozen-lockfile && pnpm --dir frontend build
 
-      - name: Bridge deps (the automation engine)
+      # No bundled browser is shipped — playwright-core drives the user's system Chrome,
+      # so we never download Chromium (saves ~280MB at install + ~540MB at runtime).
+      - name: Bridge deps (the automation engine — system Chrome, no bundled browser)
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
         run: npm --prefix workers/rpa-bridge ci --omit=optional && npm --prefix workers/rpa-bridge install @anthropic-ai/claude-agent-sdk
 
       - name: MCP server deps (bundled for Claude Code)
