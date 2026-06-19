@@ -67,12 +67,16 @@ jobs:
       - name: Bridge deps (the automation engine)
         run: npm --prefix workers/rpa-bridge ci --omit=optional && npm --prefix workers/rpa-bridge install @anthropic-ai/claude-agent-sdk
 
+      - name: MCP server deps (bundled for Claude Code)
+        run: npm --prefix workers/mcp-server ci --omit=dev
+
       # Stage the engine resources the bundle expects (mirrors scripts/release.sh).
       - name: Stage engine resources (macOS)
         if: runner.os == 'macOS'
         run: |
           mkdir -p src-tauri/resources
           rsync -a --exclude '_*' --exclude '*.log' workers/rpa-bridge/ src-tauri/resources/rpa-bridge/
+          rsync -a --exclude '*.log' workers/mcp-server/ src-tauri/resources/mcp-server/
           curl -sL "${{ matrix.node_url }}" -o /tmp/node.tgz
           tar -xzf /tmp/node.tgz -C /tmp
           cp /tmp/node-*/bin/node src-tauri/resources/node && chmod +x src-tauri/resources/node
@@ -85,6 +89,7 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force src-tauri/resources | Out-Null
           robocopy workers/rpa-bridge src-tauri/resources/rpa-bridge /E /XF "*.log" "_*" | Out-Null
+          robocopy workers/mcp-server src-tauri/resources/mcp-server /E /XF "*.log" | Out-Null
           Invoke-WebRequest "${{ matrix.node_url }}" -OutFile $env:TEMP/node.zip
           Expand-Archive $env:TEMP/node.zip -DestinationPath $env:TEMP/node -Force
           Copy-Item (Get-ChildItem $env:TEMP/node -Recurse -Filter node.exe | Select-Object -First 1).FullName src-tauri/resources/node.exe
